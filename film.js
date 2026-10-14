@@ -47,23 +47,52 @@
     next.decode ? next.decode().then(go, go) : (next.onload = go);
   }
 
-  // ---- clips: downloaded whole into memory (cheap: ~17MB on phones) so they start instantly ----
-  // Only TWO <video> elements ever exist. Many phones can hardware-decode just a few videos at
-  // once; one element per clip (9) exhausted that, causing software-decode lag or a stalled
-  // clip. Two pooled players ping-pong, and the idle one is emptied so its decoder is freed.
+  // ---- diagnostics: add ?debug=1 to the address to see what the film is doing on this device ----
+  const DEBUG = /[?&]debug\b/.test(location.search);
+  const T0 = performance.now();
+  const lines = [];
+  let dbgBox = null;
+  function log(msg) {
+    if (!DEBUG) return;
+    lines.push(((performance.now() - T0) / 1000).toFixed(1) + 's ' + msg);
+    if (lines.length > 40) lines.shift();
+    if (!dbgBox) {
+      dbgBox = document.createElement('pre');
+      dbgBox.style.cssText = 'position:fixed;left:6px;right:6px;top:6px;z-index:99999;margin:0;padding:8px;max-height:46vh;overflow:auto;background:rgba(0,0,0,.82);color:#7CFC9A;font:11px/1.35 ui-monospace,monospace;white-space:pre-wrap;border-radius:8px;pointer-events:none';
+      document.body.appendChild(dbgBox);
+    }
+    dbgBox.textContent = lines.join('\n');
+  }
+  if (DEBUG) {
+    const c = navigator.connection || {};
+    log('touch=' + TOUCH + ' reducedMotion=' + reduced + ' quality=' + Q + ' h264=' + (probe.canPlayType('video/mp4; codecs="avc1.64001F"') || 'no'));
+    log('net=' + (c.effectiveType || '?') + ' saveData=' + !!c.saveData + ' screen=' + screen.width + 'x' + screen.height);
+  }
+
+  // ---- clips ----
+  // Each clip is downloaded in the background so later transitions start instantly. If a clip
+  // isn't fully downloaded yet when it's needed, the player streams it straight from the CDN
+  // instead of waiting (the files are built to start playing before they finish downloading).
+  // Only TWO <video> elements ever exist: many phones can hardware-decode just a few videos at
+  // once, so two pooled players ping-pong and the idle one is emptied to free its decoder.
   const names = ['intro', 'f0', 'f1', 'f2', 'f3', 'r0', 'r1', 'r2', 'r3'];
-  const blobs = {};
+  const clipUrl = name => `${CLIP_BASE}clips/${Q}/${name}.${EXT}`;
+  const blobs = {}, readySrc = {};
   function fetchClip(name, onProgress) {
     if (blobs[name]) return blobs[name];
-    const url = `${CLIP_BASE}clips/${Q}/${name}.${EXT}`;
+    const url = clipUrl(name), t = performance.now();
     blobs[name] = fetch(url).then(async r => {
-      if (!r.ok) throw new Error(r.status);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const total = +r.headers.get('content-length') || 0;
       if (!r.body || !total || !onProgress) return r.blob();
       const reader = r.body.getReader(); const parts = []; let got = 0;
       for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onProgress(got / total); }
       return new Blob(parts, { type: 'video/' + EXT });
-    }).then(b => URL.createObjectURL(b)).catch(() => url); // network hiccup: let the player stream it directly
+    }).then(b => {
+      readySrc[name] = URL.createObjectURL(b);
+      log('downloaded ' + name + ' ' + Math.round(b.size / 1024) + 'KB in ' + Math.round(performance.now() - t) + 'ms');
+      return readySrc[name];
+    }).catch(err => { log('download FAILED ' + name + ': ' + err.message); return url; });
     return blobs[name];
   }
   const pool = [0, 1].map(() => {
@@ -81,6 +110,33 @@
     v.classList.remove('on'); v.removeAttribute('src'); try { v.load(); } catch (e) {}
   }
 
+  // Some phones refuse to start video without a tap (iPhone Low Power Mode, some data savers).
+  // If that happens, a small "Tap to play" prompt appears; one tap unlocks both players.
+  let blocked = false;
+  const tapHint = document.createElement('button');
+  tapHint.type = 'button'; tapHint.className = 'tap-hint'; tapHint.textContent = 'Tap to play the animation';
+  tapHint.style.cssText = 'position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:4;display:none;border:0;border-radius:999px;padding:12px 20px;background:rgba(251,248,242,.95);color:#0e1a2b;font-family:inherit;font-weight:600;font-size:.9rem;line-height:1;box-shadow:0 6px 24px rgba(0,0,0,.3);cursor:pointer';
+  stage.appendChild(tapHint);
+  const unlocked = new Set();
+  function unlock() {
+    if (blocked) { blocked = false; tapHint.style.display = 'none'; }
+    if (busy) return; // a transition is running: try again on the next tap
+    pool.forEach(v => {
+      if (unlocked.has(v) || v.classList.contains('on') || v.getAttribute('src')) return;
+      const s = readySrc.intro || clipUrl('intro');
+      v.src = s;
+      const pr = v.play();
+      if (pr && pr.then) pr.then(() => {
+        unlocked.add(v);
+        if (v.getAttribute('src') === s && !v.classList.contains('on')) { v.pause(); release(v); }
+        log('player ' + pool.indexOf(v) + ' unlocked by tap');
+        if (unlocked.size === pool.length) ['touchend', 'click', 'keydown'].forEach(ev => removeEventListener(ev, unlock, true));
+      }, e => log('unlock skipped: ' + e.name));
+    });
+  }
+  ['touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, unlock, { capture: true, passive: true }));
+  tapHint.addEventListener('click', e => { e.stopPropagation(); unlock(); });
+
   let p1 = 0, p2 = 0;
   const showProgress = () => { if (bar) bar.style.transform = `scaleX(${Math.min(1, (p1 + p2) / 2)})`; };
   const first = Promise.all([
@@ -96,7 +152,7 @@
     if (started) return; started = true;
     document.body.classList.add('ready');
     setChapter(0);
-    if (reduced) { crossfadeTo(posterSrc(0)); return; }
+    if (reduced) { log('reduced motion is ON in this phone\'s settings: showing stills only'); crossfadeTo(posterSrc(0)); return; }
     busy = true;
     play('intro', () => { busy = false; TOUCH ? syncToScroll() : flushPending(); });
   }
@@ -108,41 +164,50 @@
   function play(name, done) {
     const to = name === 'intro' ? 0 : (name[0] === 'f' ? +name[1] + 1 : +name[1]);
     const v = pool[slot], other = pool[1 - slot]; slot = 1 - slot;
+    const t = performance.now();
     let over = false; // exactly one outcome: the clip plays through, or we fall back to a still
     const waitT = setTimeout(() => stage.classList.add('waiting'), 180);
     const settle = () => { clearTimeout(waitT); clearTimeout(stallT); stage.classList.remove('waiting'); };
-    const fail = () => { if (over) return; over = true; settle(); release(v); crossfadeTo(posterSrc(to), done); };
-    // never let a slow or stuck clip freeze the page: after 6s of no picture, show the still
-    const stallT = setTimeout(fail, 6000);
-    fetchClip(name).then(src => {
+    const fail = why => {
+      if (over) return; over = true; settle(); release(v);
+      log('play ' + name + ' -> still image (' + why + ')');
+      crossfadeTo(posterSrc(to), done);
+    };
+    // never let a stuck clip freeze the page: after 10s with no picture, show the still
+    const stallT = setTimeout(() => fail('no picture after 10s'), 10000);
+    const src = readySrc[name] || clipUrl(name); // downloaded copy if ready, otherwise stream it
+    if (!readySrc[name]) fetchClip(name);
+    const go = () => {
       if (over) return;
-      const go = () => {
+      try { v.currentTime = 0; } catch (e) {}
+      v.playbackRate = RATE;
+      let finished = false;
+      const finish = () => { if (finished || over) return; finished = true; over = true; v.removeEventListener('ended', finish); done && done(); };
+      v.addEventListener('ended', finish);
+      v.addEventListener('playing', () => {
         if (over) return;
-        try { v.currentTime = 0; } catch (e) {}
-        v.playbackRate = RATE;
-        let finished = false;
-        const finish = () => { if (finished || over) return; finished = true; over = true; v.removeEventListener('ended', finish); done && done(); };
-        v.addEventListener('ended', finish);
-        v.addEventListener('playing', () => {
-          if (over) return;
-          settle();
-          v.classList.add('on');
-          release(other); // the previous clip is now hidden: free its decoder
-          // safety net if 'ended' never fires
-          const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / RATE;
-          setTimeout(finish, dur * 1000 + 1500);
-        }, { once: true });
-        const pr = v.play();
-        if (pr && pr.catch) pr.catch(() => { v.removeEventListener('ended', finish); fail(); });
-      };
-      v.src = src;
-      if (v.readyState >= 2) go();
-      else {
-        v.addEventListener('loadeddata', go, { once: true });
-        v.addEventListener('error', fail, { once: true });
-        v.load();
-      }
-    });
+        settle();
+        log('play ' + name + ' OK (' + (readySrc[name] === src ? 'downloaded' : 'streamed') + ', started in ' + Math.round(performance.now() - t) + 'ms)');
+        v.classList.add('on');
+        release(other); // the previous clip is now hidden: free its decoder
+        // safety net if 'ended' never fires
+        const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / RATE;
+        setTimeout(finish, dur * 1000 + 1500);
+      }, { once: true });
+      const pr = v.play();
+      if (pr && pr.catch) pr.catch(err => {
+        v.removeEventListener('ended', finish);
+        if (err && err.name === 'NotAllowedError') { blocked = true; tapHint.style.display = 'block'; }
+        fail('play() refused: ' + (err && err.name));
+      });
+    };
+    v.src = src;
+    if (v.readyState >= 2) go();
+    else {
+      v.addEventListener('loadeddata', go, { once: true });
+      v.addEventListener('error', () => fail('video error ' + (v.error && v.error.code)), { once: true });
+      v.load();
+    }
   }
 
   function setChapter(i) {
