@@ -42,38 +42,43 @@
       media.appendChild(next);
       requestAnimationFrame(() => requestAnimationFrame(() => next.classList.remove('next')));
       media.querySelectorAll('video.on').forEach(v => v.classList.remove('on'));
-      setTimeout(() => { poster.src = src; next.remove(); done && done(); }, 750);
+      setTimeout(() => { poster.src = src; next.remove(); pool.forEach(release); done && done(); }, 750);
     };
     next.decode ? next.decode().then(go, go) : (next.onload = go);
   }
 
-  // ---- clips: fetched whole as blobs so they start instantly and never stall mid-move ----
+  // ---- clips: downloaded whole into memory (cheap: ~17MB on phones) so they start instantly ----
+  // Only TWO <video> elements ever exist. Many phones can hardware-decode just a few videos at
+  // once; one element per clip (9) exhausted that, causing software-decode lag or a stalled
+  // clip. Two pooled players ping-pong, and the idle one is emptied so its decoder is freed.
   const names = ['intro', 'f0', 'f1', 'f2', 'f3', 'r0', 'r1', 'r2', 'r3'];
-  const clips = {};
-  function makeVideo(name) {
-    const v = document.createElement('video');
-    v.muted = true; v.defaultMuted = true; v.playsInline = true;
-    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
-    v.preload = 'auto'; v.disablePictureInPicture = true;
-    media.appendChild(v);
-    return v;
-  }
+  const blobs = {};
   function fetchClip(name, onProgress) {
+    if (blobs[name]) return blobs[name];
     const url = `${CLIP_BASE}clips/${Q}/${name}.${EXT}`;
-    const v = makeVideo(name);
-    const ready = fetch(url).then(async r => {
+    blobs[name] = fetch(url).then(async r => {
       if (!r.ok) throw new Error(r.status);
       const total = +r.headers.get('content-length') || 0;
       if (!r.body || !total || !onProgress) return r.blob();
       const reader = r.body.getReader(); const parts = []; let got = 0;
       for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onProgress(got / total); }
       return new Blob(parts, { type: 'video/' + EXT });
-    }).then(b => {
-      v.src = URL.createObjectURL(b);
-      return new Promise(res => { if (v.readyState >= 2) res(v); else { v.addEventListener('loadeddata', () => res(v), { once: true }); v.addEventListener('error', () => res(null), { once: true }); v.load(); } });
-    }).catch(() => { v.src = url; return v; });
-    clips[name] = { v, ready };
-    return ready;
+    }).then(b => URL.createObjectURL(b)).catch(() => url); // network hiccup: let the player stream it directly
+    return blobs[name];
+  }
+  const pool = [0, 1].map(() => {
+    const v = document.createElement('video');
+    v.muted = true; v.defaultMuted = true; v.playsInline = true;
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.preload = 'auto'; v.disablePictureInPicture = true;
+    media.appendChild(v);
+    return v;
+  });
+  let slot = 0;
+  function release(v) {
+    if (!v.getAttribute('src')) return;
+    try { v.pause(); } catch (e) {}
+    v.classList.remove('on'); v.removeAttribute('src'); try { v.load(); } catch (e) {}
   }
 
   let p1 = 0, p2 = 0;
@@ -82,7 +87,10 @@
     fetchClip('intro', p => { p1 = p; showProgress(); }),
     fetchClip('f0', p => { p2 = p; showProgress(); }),
   ]);
-  first.then(() => names.slice(2).reduce((chain, n) => chain.then(() => fetchClip(n)), Promise.resolve()));
+  // the rest download quietly in order; on phones, only once the browser is idle so the
+  // download never competes with the clip that is playing or with the user's scroll
+  const rest = () => names.slice(2).reduce((chain, n) => chain.then(() => fetchClip(n)), Promise.resolve());
+  first.then(() => (TOUCH && 'requestIdleCallback' in window) ? requestIdleCallback(rest, { timeout: 3000 }) : rest());
   let started = false;
   function start() {
     if (started) return; started = true;
@@ -98,28 +106,42 @@
 
   // ---- playback ----
   function play(name, done) {
-    const c = clips[name];
-    const fail = () => { const to = name === 'intro' ? 0 : (name[0] === 'f' ? +name[1] + 1 : +name[1]); crossfadeTo(posterSrc(to), done); };
-    if (!c) { fail(); return; }
+    const to = name === 'intro' ? 0 : (name[0] === 'f' ? +name[1] + 1 : +name[1]);
+    const v = pool[slot], other = pool[1 - slot]; slot = 1 - slot;
+    let over = false; // exactly one outcome: the clip plays through, or we fall back to a still
     const waitT = setTimeout(() => stage.classList.add('waiting'), 180);
-    c.ready.then(v => {
-      clearTimeout(waitT); stage.classList.remove('waiting');
-      if (!v) { fail(); return; }
-      try { v.currentTime = 0; } catch (e) {}
-      v.playbackRate = RATE;
-      let finished = false;
-      const finish = () => { if (finished) return; finished = true; v.removeEventListener('ended', finish); done && done(); };
-      v.addEventListener('ended', finish);
-      const shown = () => {
-        v.classList.add('on');
-        media.querySelectorAll('video.on').forEach(o => { if (o !== v) { o.classList.remove('on'); o.pause(); } });
+    const settle = () => { clearTimeout(waitT); clearTimeout(stallT); stage.classList.remove('waiting'); };
+    const fail = () => { if (over) return; over = true; settle(); release(v); crossfadeTo(posterSrc(to), done); };
+    // never let a slow or stuck clip freeze the page: after 6s of no picture, show the still
+    const stallT = setTimeout(fail, 6000);
+    fetchClip(name).then(src => {
+      if (over) return;
+      const go = () => {
+        if (over) return;
+        try { v.currentTime = 0; } catch (e) {}
+        v.playbackRate = RATE;
+        let finished = false;
+        const finish = () => { if (finished || over) return; finished = true; over = true; v.removeEventListener('ended', finish); done && done(); };
+        v.addEventListener('ended', finish);
+        v.addEventListener('playing', () => {
+          if (over) return;
+          settle();
+          v.classList.add('on');
+          release(other); // the previous clip is now hidden: free its decoder
+          // safety net if 'ended' never fires
+          const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / RATE;
+          setTimeout(finish, dur * 1000 + 1500);
+        }, { once: true });
+        const pr = v.play();
+        if (pr && pr.catch) pr.catch(() => { v.removeEventListener('ended', finish); fail(); });
       };
-      v.addEventListener('playing', shown, { once: true });
-      const pr = v.play();
-      if (pr && pr.catch) pr.catch(() => { v.removeEventListener('ended', finish); fail(); });
-      // safety net if 'ended' never fires
-      const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / RATE;
-      setTimeout(finish, dur * 1000 + 1500);
+      v.src = src;
+      if (v.readyState >= 2) go();
+      else {
+        v.addEventListener('loadeddata', go, { once: true });
+        v.addEventListener('error', fail, { once: true });
+        v.load();
+      }
     });
   }
 
