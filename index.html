@@ -487,7 +487,18 @@ footer .btn{margin-top:4px}
       btn.disabled = true; say('Adding you…');
       var saved = false;
       try{ var r = await getDb(), db = r[0], user = r[1]; if(db && user){ var id = await user.id(); await db.doc('waitlist/' + id).set({ email: email, source: 'artifact', at: new Date().toISOString() }); saved = true; } }catch(err){}
-      if(FORM_ENDPOINT){ try{ await fetch(FORM_ENDPOINT, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ email: email, source: location.hostname || 'site', at: new Date().toISOString() }) }); saved = true; }catch(err){} }
+      if(FORM_ENDPOINT){
+        // No 'no-cors': Apps Script sends proper CORS headers for a text/plain POST,
+        // so we can actually read whether the save worked. One quiet retry absorbs a
+        // transient cold-start error instead of telling the visitor it worked when it didn't.
+        for (var attempt = 0; attempt < 2 && !saved; attempt++){
+          try{
+            var resp = await fetch(FORM_ENDPOINT, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ email: email, source: location.hostname || 'site', at: new Date().toISOString() }) });
+            if (resp.ok) saved = true;
+          }catch(err){}
+          if (!saved && attempt === 0) await new Promise(function(res){ setTimeout(res, 900); });
+        }
+      }
       btn.disabled = false;
       if(saved){ say("You're on the waitlist. We'll email you the day we launch.", 'ok'); form.reset(); }
       else { say("We couldn't save that just now. Please try again in a moment.", 'err'); }
