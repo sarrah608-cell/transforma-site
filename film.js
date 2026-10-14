@@ -22,6 +22,9 @@
   if (TOUCH) document.documentElement.classList.add('touch');
   const probe = document.createElement('video');
   const EXT = 'mp4'; // H.264 plays in every current browser; others fall back to still frames
+  // Video clips are served full-quality from the repo's CDN mirror (keeps the deployed
+  // site itself tiny and fast; images/posters still ship with the page as before).
+  const CLIP_BASE = 'https://cdn.jsdelivr.net/gh/sarrah608-cell/transforma-site@main/';
   const posterSrc = i => `posters/${Q}/p${i}.jpg`;
 
   let cur = 0, busy = false, pending = 0, needNewGesture = false, lastWheel = 0;
@@ -56,7 +59,7 @@
     return v;
   }
   function fetchClip(name, onProgress) {
-    const url = `clips/${Q}/${name}.${EXT}`;
+    const url = `${CLIP_BASE}clips/${Q}/${name}.${EXT}`;
     const v = makeVideo(name);
     const ready = fetch(url).then(async r => {
       if (!r.ok) throw new Error(r.status);
