@@ -477,6 +477,13 @@ footer .btn{margin-top:4px}
   var dbP = null;
   function getDb(){ if(!dbP) dbP = (window.claude && window.claude.use) ? Promise.all([window.claude.use('db'), window.claude.use('user')]).catch(function(){return [null,null]}) : Promise.resolve([null,null]); return dbP; }
   setTimeout(getDb, 1500);
+  var TYPOS = { 'gmial.com':'gmail.com','gmai.com':'gmail.com','gamil.com':'gmail.com','gnail.com':'gmail.com','gmaill.com':'gmail.com','gmal.com':'gmail.com','gmail.co':'gmail.com','gmail.cm':'gmail.com','gmail.om':'gmail.com','hotmial.com':'hotmail.com','hotmal.com':'hotmail.com','hotmai.com':'hotmail.com','yaho.com':'yahoo.com','yahooo.com':'yahoo.com','outlok.com':'outlook.com','iclod.com':'icloud.com' };
+  function fixDomain(email){
+    var at = email.lastIndexOf('@'), user = email.slice(0, at), orig = email.slice(at + 1).toLowerCase();
+    var dom = orig.replace(/\.(con|cpm|cmo|ocm|comm|vom|xom)$/, '.com');
+    if (TYPOS[dom]) dom = TYPOS[dom];
+    return dom === orig ? email : user + '@' + dom; // unchanged unless a typo was actually found
+  }
   document.querySelectorAll('form.signup').forEach(function(form){
     var input = form.querySelector('input'), msg = form.querySelector('.msg'), btn = form.querySelector('button');
     function say(t, c){ msg.textContent = t; msg.className = 'msg ' + (c||''); }
@@ -484,6 +491,11 @@ footer .btn{margin-top:4px}
       e.preventDefault();
       var email = (input.value||'').trim();
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ say('Enter a full email address, like name@example.com.', 'err'); input.focus(); return; }
+      // Catch common domain typos (gmail.con, gmial.com…) before they become a lost sign-up:
+      // suggest the fix in the box and let the visitor confirm with one more tap.
+      var fixed = fixDomain(email);
+      if(fixed !== email && form.dataset.suggested !== fixed){ form.dataset.suggested = fixed; input.value = fixed; say('Did you mean ' + fixed + '? Tap “Join the waitlist” again to confirm.', 'err'); input.focus(); return; }
+      delete form.dataset.suggested;
       btn.disabled = true; say('Adding you…');
       var saved = false;
       try{ var r = await getDb(), db = r[0], user = r[1]; if(db && user){ var id = await user.id(); await db.doc('waitlist/' + id).set({ email: email, source: 'artifact', at: new Date().toISOString() }); saved = true; } }catch(err){}
