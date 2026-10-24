@@ -15,8 +15,10 @@
   const small = Math.min(screen.width, screen.height) < 600 || innerWidth < 820;
   const Q = small ? 'sd' : 'hd';
   const RATE = 1.25;
-  // Phones: transitions run a little quicker so a scroll never feels stuck waiting on a clip.
-  const TOUCH_RATE = 1.6, CATCHUP = 1.4;
+  // Phones: 24 fps x 1.25 = exactly 30 frames a second, which divides evenly into 60, 90 and
+  // 120 Hz screens, so every frame stays on screen for the same time and the camera glides
+  // instead of judders. Catching up (scrolled two tables on) runs at an even 60 fps.
+  const TOUCH_RATE = 1.25, CATCHUP_RATE = 2.5;
   // Phones and tablets: the page scrolls natively and each table owns one screen of scroll;
   // crossing into the next screen plays that transition once. Nothing ever blocks the scroll.
   const TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -29,16 +31,25 @@
   // Video clips are served full-quality from the repo's CDN mirror (keeps the deployed
   // site itself tiny and fast; images/posters still ship with the page as before).
   const CLIP_BASE = 'https://cdn.jsdelivr.net/gh/sarrah608-cell/transforma-site@main/';
-  const posterSrc = i => `posters/${Q}/p${i}.jpg`;
+  // Portrait screens show the film as a band cut from the middle of the frame, so they get
+  // clips and stills cropped to exactly that window: same picture, ~30% less to download
+  // and decode. Pinned to the commit that added them so the CDN never serves a stale copy.
+  const PORTRAIT = matchMedia('(max-aspect-ratio:4/5)');
+  const M_BASE = 'https://cdn.jsdelivr.net/gh/sarrah608-cell/transforma-site@f5f9d95a09d562808f6a17b9da4d15362ffddf71/';
+  const q = () => PORTRAIT.matches ? 'm' : Q;
+  const posterSrc = i => `posters/${q()}/p${i}.jpg`;
 
   let cur = 0, busy = false, pending = 0, needNewGesture = false, lastWheel = 0;
 
   // ---- posters (still frames at each table) ----
   const poster = new Image();
   poster.className = 'poster'; poster.alt = ''; poster.decoding = 'async';
-  poster.src = `posters/${Q}/start.jpg`;
+  poster.src = `posters/${q()}/start.jpg`;
   media.appendChild(poster);
-  [0, 1, 2, 3, 4].forEach(i => { const im = new Image(); im.src = posterSrc(i); });
+  const stills = {};
+  const preloadStill = i => { if (i < 0 || i >= N) return; const s = posterSrc(i); if (!stills[s]) { stills[s] = new Image(); stills[s].src = s; } };
+  // phones fetch the stills next to the current table only, so they don't compete with the clips
+  (LITE ? [0] : [0, 1, 2, 3, 4]).forEach(preloadStill);
 
   function crossfadeTo(src, done) {
     const next = new Image(); next.className = 'poster next'; next.alt = ''; next.src = src;
@@ -69,7 +80,7 @@
   }
   if (DEBUG) {
     const c = navigator.connection || {};
-    log('touch=' + TOUCH + ' reducedMotion=' + reduced + ' quality=' + Q + ' h264=' + (probe.canPlayType('video/mp4; codecs="avc1.64001F"') || 'no'));
+    log('touch=' + TOUCH + ' reducedMotion=' + reduced + ' quality=' + q() + ' h264=' + (probe.canPlayType('video/mp4; codecs="avc1.64001F"') || 'no'));
     log('net=' + (c.effectiveType || '?') + ' saveData=' + !!c.saveData + ' screen=' + screen.width + 'x' + screen.height);
   }
 
@@ -80,12 +91,16 @@
   // Only TWO <video> elements ever exist: many phones can hardware-decode just a few videos at
   // once, so two pooled players ping-pong and the idle one is emptied to free its decoder.
   const names = ['intro', 'f0', 'f1', 'f2', 'f3', 'r0', 'r1', 'r2', 'r3'];
-  const clipUrl = name => `${CLIP_BASE}clips/${Q}/${name}.${EXT}`;
-  const blobs = {}, readySrc = {};
-  function fetchClip(name, onProgress) {
-    if (blobs[name]) return blobs[name];
+  const clipUrl = name => { const k = q(); return `${k === 'm' ? M_BASE : CLIP_BASE}clips/${k}/${name}.${EXT}`; };
+  const blobs = {}, readySrc = {}; // keyed by URL, so each quality is cached separately
+  const ready = name => readySrc[clipUrl(name)];
+  const inflight = {}; // downloads still running (phones can pause background ones)
+  function fetchClip(name, onProgress, bg) {
     const url = clipUrl(name), t = performance.now();
-    blobs[name] = fetch(url).then(async r => {
+    if (blobs[url]) { if (!bg && inflight[url]) inflight[url].bg = false; return blobs[url]; }
+    const ctrl = bg && window.AbortController ? new AbortController() : null;
+    inflight[url] = { ctrl, bg: !!bg };
+    blobs[url] = fetch(url, ctrl ? { signal: ctrl.signal } : undefined).then(async r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const total = +r.headers.get('content-length') || 0;
       if (!r.body || !total || !onProgress) return r.blob();
@@ -93,11 +108,24 @@
       for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onProgress(got / total); }
       return new Blob(parts, { type: 'video/' + EXT });
     }).then(b => {
-      readySrc[name] = URL.createObjectURL(b);
+      delete inflight[url];
+      if (!bg) setTimeout(pump, 0);
+      readySrc[url] = URL.createObjectURL(b);
       log('downloaded ' + name + ' ' + Math.round(b.size / 1024) + 'KB in ' + Math.round(performance.now() - t) + 'ms');
-      return readySrc[name];
-    }).catch(err => { log('download FAILED ' + name + ': ' + err.message); return url; });
-    return blobs[name];
+      if (TOUCH) setTimeout(prime, 0);
+      return readySrc[url];
+    }).catch(err => {
+      delete inflight[url];
+      if (!bg) setTimeout(pump, 0);
+      if (err && err.name === 'AbortError') { delete blobs[url]; log('paused download ' + name); return null; }
+      log('download FAILED ' + name + ': ' + err.message); return url;
+    });
+    return blobs[url];
+  }
+  // a clip is needed right now: pause background downloads of other clips so it gets the
+  // whole connection (they resume from the queue afterwards)
+  function focus(url) {
+    Object.keys(inflight).forEach(u => { const f = inflight[u]; if (u !== url && f.bg && f.ctrl) f.ctrl.abort(); });
   }
   const pool = [0, 1].map(() => {
     const v = document.createElement('video');
@@ -108,7 +136,22 @@
     return v;
   });
   let slot = 0;
+  // Phones: while a table is on screen, the idle player is already loaded with the next
+  // move down and has decoded its first frame, so a scroll starts the motion at once
+  // instead of waiting for the player to open the file.
+  let primed = null;
+  function prime() {
+    if (!TOUCH || !started || busy || reduced || cur >= N - 1) return;
+    const src = ready('f' + cur);
+    if (!src) return;
+    const v = pool.find(p => !p.classList.contains('on'));
+    if (!v || v.getAttribute('src') === src) return;
+    v.src = src; try { v.load(); } catch (e) {}
+    primed = { v, src };
+    log('primed f' + cur);
+  }
   function release(v) {
+    if (primed && primed.v === v) primed = null;
     if (!v.getAttribute('src')) return;
     try { v.pause(); } catch (e) {}
     v.classList.remove('on'); v.removeAttribute('src'); try { v.load(); } catch (e) {}
@@ -126,13 +169,14 @@
     if (blocked) { blocked = false; tapHint.style.display = 'none'; }
     if (busy) return; // a transition is running: try again on the next tap
     pool.forEach(v => {
-      if (unlocked.has(v) || v.classList.contains('on') || v.getAttribute('src')) return;
-      const s = readySrc.intro || clipUrl('intro');
-      v.src = s;
+      const had = TOUCH && primed && primed.v === v ? v.getAttribute('src') : null;
+      if (unlocked.has(v) || v.classList.contains('on') || (v.getAttribute('src') && !had)) return;
+      const s = had || ready('intro') || clipUrl('intro');
+      if (!had) v.src = s;
       const pr = v.play();
       if (pr && pr.then) pr.then(() => {
         unlocked.add(v);
-        if (v.getAttribute('src') === s && !v.classList.contains('on')) { v.pause(); release(v); }
+        if (v.getAttribute('src') === s && !v.classList.contains('on')) { v.pause(); if (had) { try { v.currentTime = 0; } catch (e) {} } else release(v); }
         log('player ' + pool.indexOf(v) + ' unlocked by tap');
         if (unlocked.size === pool.length) ['touchend', 'click', 'keydown'].forEach(ev => removeEventListener(ev, unlock, true));
       }, e => log('unlock skipped: ' + e.name));
@@ -143,21 +187,38 @@
 
   let p1 = 0, p2 = 0;
   const showProgress = () => { if (bar) bar.style.transform = `scaleX(${Math.min(1, (p1 + p2) / 2)})`; };
-  const first = Promise.all([
-    fetchClip('intro', p => { p1 = p; showProgress(); }),
-    fetchClip('f0', p => { p2 = p; showProgress(); }),
-  ]);
+  // phones: the intro first, then the first move, one at a time so the intro arrives sooner
+  const first = LITE
+    ? fetchClip('intro', p => { p1 = p; showProgress(); }).then(() => fetchClip('f0', p => { p2 = p; showProgress(); }))
+    : Promise.all([
+      fetchClip('intro', p => { p1 = p; showProgress(); }),
+      fetchClip('f0', p => { p2 = p; showProgress(); }),
+    ]);
   // the rest download quietly in order; on phones, only once the browser is idle so the
   // download never competes with the clip that is playing or with the user's scroll
   const rest = () => names.slice(2).reduce((chain, n) => chain.then(() => fetchClip(n)), Promise.resolve());
-  let queue = Promise.resolve();
-  const want = n => { if (!blobs[n]) queue = queue.then(() => fetchClip(n)); };
-  // phones: keep only the next couple of transitions (and the one back) downloaded
+  // phones: one background download at a time, always the most useful one for where the
+  // visitor is now (the list is rebuilt at every table, so stale downloads never block)
+  let wanted = [], working = false, workingUrl = '';
+  function pump() {
+    if (working || Object.keys(inflight).some(u => !inflight[u].bg)) return; // a needed clip has the line
+    const n = wanted.find(x => !blobs[clipUrl(x)]);
+    if (!n) return;
+    working = true; workingUrl = clipUrl(n);
+    fetchClip(n, null, true).then(() => { working = false; workingUrl = ''; pump(); });
+  }
   function prefetchAround(i) {
     if (!LITE) return;
-    if (i < N - 1) want('f' + i);
-    if (i > 0) want('r' + (i - 1));
-    if (i + 1 < N - 1) want('f' + (i + 1));
+    // most people keep scrolling down, so the next two moves down come before the one back up
+    wanted = [];
+    if (i < N - 1) wanted.push('f' + i);
+    if (i + 1 < N - 1) wanted.push('f' + (i + 1));
+    if (i > 0) wanted.push('r' + (i - 1));
+    // a background download that is no longer useful from this table gives way
+    const w = inflight[workingUrl];
+    if (working && w && w.bg && w.ctrl && !wanted.some(x => clipUrl(x) === workingUrl)) w.ctrl.abort();
+    preloadStill(i); preloadStill(i + 1); preloadStill(i - 1);
+    pump();
   }
   first.then(() => LITE ? prefetchAround(0) : rest());
   let started = false;
@@ -167,7 +228,7 @@
     setChapter(0);
     if (reduced) { log('reduced motion is ON in this phone\'s settings: showing stills only'); crossfadeTo(posterSrc(0)); return; }
     busy = true;
-    play('intro', () => { busy = false; TOUCH ? syncToScroll() : flushPending(); });
+    play('intro', () => { busy = false; TOUCH ? (syncToScroll(), prime()) : flushPending(); });
   }
   const posterReady = new Promise(res => { if (poster.complete && poster.naturalWidth) res(); else { poster.onload = res; poster.onerror = res; } });
   posterReady.then(() => { if (bar) bar.style.transform = 'scaleX(1)'; setTimeout(start, 250); });
@@ -177,7 +238,9 @@
   function play(name, done, rate) {
     rate = rate || (TOUCH ? TOUCH_RATE : RATE);
     const to = name === 'intro' ? 0 : (name[0] === 'f' ? +name[1] + 1 : +name[1]);
-    const v = pool[slot], other = pool[1 - slot]; slot = 1 - slot;
+    let v = pool[slot];
+    if (TOUCH) { const idle = (primed && !primed.v.classList.contains('on')) ? primed.v : pool.find(p => !p.classList.contains('on')); if (idle) v = idle; }
+    const other = pool[1 - pool.indexOf(v)]; slot = 1 - pool.indexOf(v);
     const t = performance.now();
     let over = false; // exactly one outcome: the clip plays through, or we fall back to a still
     const waitT = setTimeout(() => stage.classList.add('waiting'), 180);
@@ -189,8 +252,7 @@
     };
     // never let a stuck clip freeze the page: after 10s with no picture, show the still
     const stallT = setTimeout(() => fail('no picture after 10s'), 10000);
-    const src = readySrc[name] || clipUrl(name); // downloaded copy if ready, otherwise stream it
-    if (!readySrc[name]) fetchClip(name);
+    let src;
     const go = () => {
       if (over) return;
       try { v.currentTime = 0; } catch (e) {}
@@ -201,9 +263,12 @@
       v.addEventListener('playing', () => {
         if (over) return;
         settle();
-        log('play ' + name + ' OK (' + (readySrc[name] === src ? 'downloaded' : 'streamed') + ', started in ' + Math.round(performance.now() - t) + 'ms)');
+        log('play ' + name + ' OK (' + (ready(name) === src ? 'downloaded' : 'streamed') + ', started in ' + Math.round(performance.now() - t) + 'ms)');
         v.classList.add('on');
-        release(other); // the previous clip is now hidden: free its decoder
+        // the previous clip is now hidden: free its decoder (phones: just after the first
+        // frames are on screen, so tearing it down never lands on the clip's opening frame)
+        if (TOUCH) { const os = other.getAttribute('src'); other.classList.remove('on'); setTimeout(() => { if (os && other.getAttribute('src') === os && v.classList.contains('on')) release(other); }, 120); }
+        else release(other);
         // safety net if 'ended' never fires
         const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / rate;
         setTimeout(finish, dur * 1000 + 1500);
@@ -215,12 +280,27 @@
         fail('play() refused: ' + (err && err.name));
       });
     };
-    v.src = src;
-    if (v.readyState >= 2) go();
+    const begin = s => {
+      if (over) return;
+      src = s;
+      if (primed && primed.v === v) primed = null;
+      if (v.getAttribute('src') !== src) v.src = src; // a primed player already has it open
+      if (v.readyState >= 2) go();
+      else {
+        v.addEventListener('loadeddata', go, { once: true });
+        v.addEventListener('error', () => fail('video error ' + (v.error && v.error.code)), { once: true });
+        v.load();
+      }
+    };
+    const url = clipUrl(name), have = ready(name);
+    if (have) begin(have);
+    else if (!LITE) { fetchClip(name); begin(url); } // stream now, keep downloading for next time
     else {
-      v.addEventListener('loadeddata', go, { once: true });
-      v.addEventListener('error', () => fail('video error ' + (v.error && v.error.code)), { once: true });
-      v.load();
+      // phones: never open a second copy of a clip that is already downloading (two copies
+      // halve the speed of both); give this one the whole connection and play it as soon as
+      // it lands. The 10s safety net above still swaps in the still if the network is stuck.
+      focus(url);
+      fetchClip(name).then(s => begin(s || url));
     }
   }
 
@@ -252,7 +332,7 @@
     poster.src = posterSrc(cur);
     prefetchAround(cur);
     busy = false; needNewGesture = true;
-    TOUCH ? syncToScroll() : flushPending();
+    TOUCH ? (syncToScroll(), prime()) : flushPending();
   }
   function flushPending() {
     const p = pending; pending = 0;
@@ -278,7 +358,11 @@
     // one table away: play the move. Two away (scrolled on while a move played): keep playing,
     // a bit faster, instead of freezing and then jumping. Further: a quick crossfade.
     if (gap === 1) { step(d - cur); return; }
-    if (gap === 2) { step(Math.sign(d - cur), TOUCH_RATE * CATCHUP, true); return; }
+    if (gap === 2) {
+      const dir = Math.sign(d - cur);
+      // catching up only when that move is already downloaded; otherwise glide straight there
+      if (reduced || ready(dir > 0 ? 'f' + cur : 'r' + (cur - 1))) { step(dir, CATCHUP_RATE, true); return; }
+    }
     busy = true; hideChapters();
     dots.forEach(x => x.classList.toggle('on', +x.dataset.chapter === d));
     crossfadeTo(posterSrc(d), () => end(d));
@@ -304,6 +388,15 @@
     } else run();
   }
   window.__film = { goTo, get chapter() { return cur; } };
+
+  // phone turned sideways (or back): switch to the clips and stills made for that shape
+  const onShape = () => {
+    log('shape changed: quality=' + q());
+    if (primed) release(primed.v);
+    if (!busy && started) { poster.src = posterSrc(cur); pool.forEach(release); } // show the still made for the new shape
+    prefetchAround(cur); if (TOUCH) prime();
+  };
+  if (PORTRAIT.addEventListener) PORTRAIT.addEventListener('change', onShape); else if (PORTRAIT.addListener) PORTRAIT.addListener(onShape);
 
   const atTop = () => scrollY <= 2;
   const modalOpen = () => dlg && dlg.open;

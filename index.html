@@ -5,7 +5,9 @@
 <meta name="theme-color" content="#0e1a2b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Newsreader:ital,opsz,wght@0,6..72,300..500;1,6..72,300..500&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>/* touch screens: set the scroll-driven film layout before first paint, so lazy images below it stay lazy */if(matchMedia("(hover: none) and (pointer: coarse)").matches)document.documentElement.classList.add("touch")</script>
 <style>
 /* A full-screen film of the house that plays one table-to-table transition per scroll, then a paper, walnut and navy editorial run. */
 :root{
@@ -102,9 +104,14 @@ body:not(.past) .brand .l{display:block;filter:drop-shadow(0 1px 12px rgba(0,0,0
 /* touch devices: native scrolling, one screen of scroll per table */
 html.touch #story{height:500vh;height:500svh}
 html.touch .stage{position:sticky;top:0;height:100vh;height:100svh;touch-action:pan-y}
+/* touch: the scroll cue's moving line runs on the compositor instead of re-laying out every frame */
+html.touch .cue i::after{top:0;transform:translate3d(0,-100%,0);animation-name:cue-t;will-change:transform}
+@keyframes cue-t{to{transform:translate3d(0,250%,0)}}
 /* portrait phones: the film sits as a wide band, copy below on navy */
 @media (max-aspect-ratio:4/5){
-  .media{top:auto;right:auto;bottom:auto;left:auto;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);width:max(150vw,calc(42vh*16/9));height:max(84.375vw,42vh);width:max(150vw,calc(42svh*16/9));height:max(84.375vw,42svh);transform:translateX(-54%)}
+  /* the band is exactly the part of the frame a portrait screen shows (the phone clips are cut to it) */
+  .media{top:auto;right:auto;bottom:auto;left:auto;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);width:max(102.19vw,50.87vh);height:max(84.375vw,42vh);width:max(102.19vw,50.87svh);height:max(84.375vw,42svh);transform:translateX(-50%)}
+  .media img,.media video{object-position:62.5% 50%}
   .media::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(180deg,var(--navy) 0%,rgba(14,26,43,0) 14%,rgba(14,26,43,0) 80%,var(--navy) 100%);pointer-events:none}
   .shade{background:linear-gradient(180deg,rgba(14,26,43,.0) 40%,rgba(14,26,43,.7) 100%)}
   .chapter{width:auto;right:var(--gutter);bottom:calc(env(safe-area-inset-bottom,0px) + 70px)}
