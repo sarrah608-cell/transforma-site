@@ -15,11 +15,15 @@
   const small = Math.min(screen.width, screen.height) < 600 || innerWidth < 820;
   const Q = small ? 'sd' : 'hd';
   const RATE = 1.25;
+  // Phones: transitions run a little quicker so a scroll never feels stuck waiting on a clip.
+  const TOUCH_RATE = 1.6, CATCHUP = 1.4;
   // Phones and tablets: the page scrolls natively and each table owns one screen of scroll;
   // crossing into the next screen plays that transition once. Nothing ever blocks the scroll.
   const TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
   const story = document.getElementById('story');
   if (TOUCH) document.documentElement.classList.add('touch');
+  // Phones and small screens download clips just ahead of need instead of all 9 (~17MB) at once.
+  const LITE = TOUCH || small;
   const probe = document.createElement('video');
   const EXT = 'mp4'; // H.264 plays in every current browser; others fall back to still frames
   // Video clips are served full-quality from the repo's CDN mirror (keeps the deployed
@@ -58,7 +62,7 @@
     if (lines.length > 40) lines.shift();
     if (!dbgBox) {
       dbgBox = document.createElement('pre');
-      dbgBox.style.cssText = 'position:fixed;left:6px;right:6px;top:6px;z-index:99999;margin:0;padding:8px;max-height:46vh;overflow:auto;background:rgba(0,0,0,.82);color:#7CFC9A;font:11px/1.35 ui-monospace,monospace;white-space:pre-wrap;border-radius:8px;pointer-events:none';
+      dbgBox.style.cssText = 'position:fixed;left:6px;right:6px;top:6px;z-index:99999;margin:0;padding:8px;max-height:46vh;overflow:auto;background:rgba(0,0,0,.82);color:#7CFC9A;font:11px/1.35 "JetBrains Mono",ui-monospace,monospace;white-space:pre-wrap;border-radius:8px;pointer-events:none';
       document.body.appendChild(dbgBox);
     }
     dbgBox.textContent = lines.join('\n');
@@ -146,7 +150,16 @@
   // the rest download quietly in order; on phones, only once the browser is idle so the
   // download never competes with the clip that is playing or with the user's scroll
   const rest = () => names.slice(2).reduce((chain, n) => chain.then(() => fetchClip(n)), Promise.resolve());
-  first.then(() => (TOUCH && 'requestIdleCallback' in window) ? requestIdleCallback(rest, { timeout: 3000 }) : rest());
+  let queue = Promise.resolve();
+  const want = n => { if (!blobs[n]) queue = queue.then(() => fetchClip(n)); };
+  // phones: keep only the next couple of transitions (and the one back) downloaded
+  function prefetchAround(i) {
+    if (!LITE) return;
+    if (i < N - 1) want('f' + i);
+    if (i > 0) want('r' + (i - 1));
+    if (i + 1 < N - 1) want('f' + (i + 1));
+  }
+  first.then(() => LITE ? prefetchAround(0) : rest());
   let started = false;
   function start() {
     if (started) return; started = true;
@@ -161,7 +174,8 @@
   setTimeout(start, 3000); // never hold the page hostage to a slow connection
 
   // ---- playback ----
-  function play(name, done) {
+  function play(name, done, rate) {
+    rate = rate || (TOUCH ? TOUCH_RATE : RATE);
     const to = name === 'intro' ? 0 : (name[0] === 'f' ? +name[1] + 1 : +name[1]);
     const v = pool[slot], other = pool[1 - slot]; slot = 1 - slot;
     const t = performance.now();
@@ -180,7 +194,7 @@
     const go = () => {
       if (over) return;
       try { v.currentTime = 0; } catch (e) {}
-      v.playbackRate = RATE;
+      v.playbackRate = rate;
       let finished = false;
       const finish = () => { if (finished || over) return; finished = true; over = true; v.removeEventListener('ended', finish); done && done(); };
       v.addEventListener('ended', finish);
@@ -191,7 +205,7 @@
         v.classList.add('on');
         release(other); // the previous clip is now hidden: free its decoder
         // safety net if 'ended' never fires
-        const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / RATE;
+        const dur = (isFinite(v.duration) && v.duration ? v.duration : 6) / rate;
         setTimeout(finish, dur * 1000 + 1500);
       }, { once: true });
       const pr = v.play();
@@ -217,24 +231,26 @@
   }
   function hideChapters() { chapters.forEach(el => el.classList.remove('on')); }
 
-  function step(d) {
+  function step(d, rate, quiet) {
     const target = cur + d;
     if (target < 0 || target >= N) return;
     busy = true;
     hideChapters();
     dots.forEach(x => x.classList.toggle('on', +x.dataset.chapter === target));
     const name = d > 0 ? `f${cur}` : `r${target}`;
-    const clipLen = 6 / RATE;
-    const tIn = setTimeout(() => setChapter(target), clipLen * 1000 * 0.62);
+    const clipLen = 6 / (rate || (TOUCH ? TOUCH_RATE : RATE));
+    // the chapter text fades in near the end of the move (skipped while catching up on a phone)
+    const tIn = quiet ? 0 : setTimeout(() => setChapter(target), clipLen * 1000 * 0.62);
     if (reduced) {
       crossfadeTo(posterSrc(target), () => { clearTimeout(tIn); end(target); });
       return;
     }
-    play(name, () => { clearTimeout(tIn); end(target); });
+    play(name, () => { clearTimeout(tIn); end(target); }, rate);
   }
   function end(target) {
     cur = target; setChapter(cur);
     poster.src = posterSrc(cur);
+    prefetchAround(cur);
     busy = false; needNewGesture = true;
     TOUCH ? syncToScroll() : flushPending();
   }
@@ -258,7 +274,11 @@
     if (!TOUCH || busy || !started) return;
     const d = desired();
     if (d === cur) return;
-    if (Math.abs(d - cur) === 1) { step(d - cur); return; }
+    const gap = Math.abs(d - cur);
+    // one table away: play the move. Two away (scrolled on while a move played): keep playing,
+    // a bit faster, instead of freezing and then jumping. Further: a quick crossfade.
+    if (gap === 1) { step(d - cur); return; }
+    if (gap === 2) { step(Math.sign(d - cur), TOUCH_RATE * CATCHUP, true); return; }
     busy = true; hideChapters();
     dots.forEach(x => x.classList.toggle('on', +x.dataset.chapter === d));
     crossfadeTo(posterSrc(d), () => end(d));

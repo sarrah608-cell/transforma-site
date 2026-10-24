@@ -183,19 +183,6 @@ h2.mid{font-size:clamp(2.2rem,4.4vw,4rem)}
 .pillar p{margin:0;color:var(--ink-2)}
 @media (max-width:860px){.manifesto{grid-template-columns:1fr}.pillars{grid-template-columns:1fr}.pillar,.pillar+.pillar{padding:24px 0;border-left:0;border-bottom:1px solid var(--line)}}
 
-/* tables grid */
-.tables{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;margin-top:64px}
-.t{position:relative;overflow:hidden;border-radius:8px;background:var(--paper-2);text-decoration:none;color:#fbf8f2;min-width:0;isolation:isolate;aspect-ratio:4/3}
-.t img{width:100%;height:100%;object-fit:cover;transition:transform 1.4s cubic-bezier(.2,.7,.2,1)}
-.t:hover img{transform:scale(1.04)}
-.t::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(0deg,rgba(10,16,26,.66),rgba(10,16,26,0) 50%);z-index:0}
-.t .cap{position:absolute;left:20px;right:20px;bottom:18px;z-index:1;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
-.t h3{margin:0;font-size:clamp(1.25rem,1.9vw,1.7rem);font-weight:720;letter-spacing:-.03em;line-height:1}
-.t p{margin:6px 0 0;font-size:.92rem;color:rgba(251,248,242,.88)}
-.t .go{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;border:1px solid rgba(251,248,242,.6);border-radius:999px;padding:7px 10px}
-.t1,.t2{grid-column:span 3}.t3,.t4,.t5{grid-column:span 2}
-@media (max-width:900px){.tables{grid-template-columns:1fr;gap:12px}.t1,.t2,.t3,.t4,.t5{grid-column:auto;aspect-ratio:4/3}.t .cap{left:14px;right:14px;bottom:14px}}
-
 /* joints */
 .joints{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(20px,3vw,40px);margin-top:72px}
 .joint{min-width:0}
@@ -217,24 +204,39 @@ h2.mid{font-size:clamp(2.2rem,4.4vw,4rem)}
 
 /* game night */
 .gn-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,6vw,90px);align-items:end}
+.gn-copy .lede{margin:0}
+.addons{margin:22px 0 0;padding-left:16px;border-left:2px solid var(--sky);color:var(--on-navy-2);font-size:.98rem;max-width:56ch}
+.addons .mono{display:block;color:#bcd6f5;font-size:.64rem;margin-bottom:6px}
 .gn-hero{margin:56px 0 0;border-radius:8px;overflow:hidden;aspect-ratio:21/9;background:var(--navy-2)}
 .gn-hero img{width:100%;height:100%;object-fit:cover}
-.boxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
-.box{background:var(--navy-2);border:1px solid rgba(233,237,243,.08);border-radius:8px;padding:28px;min-width:0}
-.box .tag{display:inline-block;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:rgba(62,132,214,.18);color:#bcd6f5;margin-bottom:18px}
-.box .tag.opt{background:rgba(233,237,243,.08);color:var(--on-navy-2)}
-.box h3{margin:0 0 10px;font-size:1.35rem;font-weight:700;letter-spacing:-.025em}
-.box p{margin:0;color:var(--on-navy-2)}
-.box ul{margin:14px 0 0;padding:0;list-style:none}
-.box li{padding:9px 0;border-top:1px solid rgba(233,237,243,.1);color:var(--on-navy);font-size:.95rem}
-.living{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:72px;border-top:1px solid rgba(233,237,243,.14)}
-.living div{padding:26px 24px 0 0;min-width:0}
-.living div+div{padding-left:24px;border-left:1px solid rgba(233,237,243,.14)}
-.living h4{margin:0 0 8px;font-size:1.08rem;font-weight:700;letter-spacing:-.02em}
-.living p{margin:0;color:var(--on-navy-2);font-size:.95rem}
-@media (max-width:980px){.boxes{grid-template-columns:1fr}.living{grid-template-columns:1fr 1fr}.living div,.living div+div{padding:22px 16px 22px 0;border-left:0;border-bottom:1px solid rgba(233,237,243,.14)}}
-@media (max-width:860px){.gn-head{grid-template-columns:1fr}.gn-hero{aspect-ratio:4/3}}
-@media (max-width:560px){.living{grid-template-columns:1fr}}
+@media (max-width:860px){.gn-head{grid-template-columns:1fr}.gn-hero{aspect-ratio:16/9;margin-top:36px}}
+
+/* rebuild: one set, rebuilt by hand */
+#gamenight{padding-bottom:clamp(56px,7vw,100px)}
+#rebuild{padding-top:0}
+#rebuild .wrap{border-top:1px solid rgba(233,237,243,.14);padding-top:clamp(64px,9vw,130px)}
+h2.rb-title{max-width:18ch}
+h2.rb-title .it{color:#7fb0e8}
+.rb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:clamp(48px,6vw,84px);border-top:1px solid rgba(233,237,243,.14)}
+.rb{padding:clamp(28px,3.4vw,44px) clamp(24px,3.4vw,48px) clamp(32px,3.6vw,48px) 0;border-bottom:1px solid rgba(233,237,243,.14);min-width:0}
+.rb:nth-child(even){padding-left:clamp(24px,3.4vw,48px);padding-right:0;border-left:1px solid rgba(233,237,243,.14)}
+.rb-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.rb-n{font-size:clamp(2.6rem,4.4vw,3.8rem);font-weight:780;letter-spacing:-.04em;line-height:1;color:#7fb0e8;font-variation-settings:"wdth" 90}
+.rb-ic{width:clamp(40px,4vw,52px);height:auto;fill:none;stroke:var(--on-navy);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.rb h3{margin:clamp(22px,2.4vw,34px) 0 14px;font-size:clamp(1.5rem,2.3vw,2.05rem);font-weight:740;letter-spacing:-.035em;line-height:1.05}
+.rb p{margin:0;color:var(--on-navy-2);max-width:46ch}
+.rb p.rb-strong{margin-top:14px;color:var(--on-navy);font-weight:650}
+@media (max-width:760px){.rb-grid{grid-template-columns:1fr}.rb,.rb:nth-child(even){padding:26px 0 28px;border-left:0}.rb h3 br{display:none}}
+
+/* kickstarter */
+.ks-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:clamp(48px,6vw,84px);border-top:1px solid var(--line)}
+.ks{padding:28px 26px 0 0;min-width:0}
+.ks+.ks{padding-left:26px;border-left:1px solid var(--line)}
+.ks-k{color:var(--blue);font-size:.64rem}
+.ks h3{margin:12px 0 8px;font-size:1.25rem;font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.ks p{margin:0;color:var(--ink-2)}
+@media (max-width:980px){.ks-grid{grid-template-columns:1fr 1fr}.ks,.ks+.ks{padding:24px 18px 24px 0;border-left:0;border-bottom:1px solid var(--line)}.ks:nth-child(even){padding-left:18px;border-left:1px solid var(--line)}}
+@media (max-width:560px){.ks-grid{grid-template-columns:1fr}.ks,.ks+.ks,.ks:nth-child(even){padding:20px 0;border-left:0}}
 
 /* join */
 .join{position:relative;overflow:hidden;border-radius:10px;min-height:560px;display:grid;align-items:end;color:#fbf8f2;isolation:isolate;background:var(--navy)}
@@ -284,6 +286,30 @@ footer{background:var(--navy);color:var(--on-navy-2);padding-block:64px}
 footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px}
 footer img{height:56px;width:auto}
 footer .btn{margin-top:4px}
+/* ---- phones: lighter, shorter page (desktop layout untouched) ---- */
+@media (max-width:820px){
+  /* only lay out and paint sections near the screen: the whole page was being laid out up front */
+  .sheet > section.block{content-visibility:auto;contain-intrinsic-size:auto 900px}
+  section.block{padding-block:64px}
+  /* prototype photos: one large, four in a 2x2 grid, instead of five full-width photos */
+  .real{grid-template-columns:1fr 1fr;gap:10px;margin-top:36px}
+  .real figure{grid-column:auto!important;aspect-ratio:1/1!important}
+  .real figure.r1{grid-column:1 / -1!important;aspect-ratio:4/3!important}
+  .real figcaption{left:8px;bottom:8px;font-size:.56rem;padding:5px 8px}
+  /* joints: picture beside the text instead of a tall picture above it */
+  .joints{margin-top:36px;gap:22px}
+  .joint{display:grid;grid-template-columns:36% minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:16px;align-items:start}
+  .joint figure{margin:0;aspect-ratio:4/5;grid-column:1;grid-row:1 / span 3}
+  .joint .step,.joint h3,.joint p{grid-column:2}
+  .joint h3{font-size:1.12rem;margin:6px 0}
+  .joint p{font-size:.92rem}
+  /* rebuild points: tighter on phones */
+  .rb,.rb:nth-child(even){padding:22px 0 24px}
+  .rb-n{font-size:2.2rem}
+  .rb-ic{width:36px}
+  .rb h3{margin:12px 0 10px;font-size:1.38rem}
+  .rb p.rb-strong{margin-top:10px}
+}
 @media (prefers-reduced-motion:reduce){.cue i::after,.busy-ring{animation:none}.chapter,.chapter.on{transition:opacity .3s}}
 </style>
 
@@ -291,7 +317,7 @@ footer .btn{margin-top:4px}
 
 <header class="top">
   <a class="brand" href="#story" aria-label="Transforma, back to the start"><img class="d" src="assets/logo.png" alt="Transforma: Adaptive furniture for evolving spaces"><img class="l" src="assets/logo-light.png" alt=""></a>
-  <nav class="nav" aria-label="Main"><a href="#tables">The tables</a><a href="#locks">How it locks</a><a href="#real">The prototype</a><a href="#faq">FAQ</a><button class="cta" type="button" data-waitlist>Join the waitlist</button></nav>
+  <nav class="nav" aria-label="Main"><a href="#locks">How it locks</a><a href="#real">The prototype</a><a href="#kickstarter">Kickstarter</a><a href="#faq">FAQ</a><button class="cta" type="button" data-waitlist>Join the waitlist</button></nav>
 </header>
 
 <main>
@@ -359,20 +385,6 @@ footer .btn{margin-top:4px}
     </div>
   </section>
 
-  <section class="block" id="tables" style="padding-top:0">
-    <div class="wrap">
-      <div class="eyebrow mono"><i></i>The tables</div>
-      <h2 class="big">Same parts. <span class="it">Different ways to live.</span></h2>
-      <div class="tables">
-        <a class="t t1" href="#story" data-goto="0"><img src="assets/renders/game.jpg" alt="Transforma as a game table with chess and a settlers board" loading="lazy"><div class="cap"><div><h3>Game Table</h3><p>Edged, full height, ready for a long night.</p></div><span class="go">Watch</span></div></a>
-        <a class="t t2" href="#story" data-goto="1"><img src="assets/renders/dining.jpg" alt="Transforma as a dining table set for four" loading="lazy"><div class="cap"><div><h3>Dining Table</h3><p>A place for everyone.</p></div><span class="go">Watch</span></div></a>
-        <a class="t t3" href="#story" data-goto="2"><img src="assets/renders/desk.jpg" alt="Transforma as a desk in a study" loading="lazy"><div class="cap"><div><h3>Desk</h3><p>Compact and calm.</p></div><span class="go">Watch</span></div></a>
-        <a class="t t4" href="#story" data-goto="3"><img src="assets/renders/coffee.jpg" alt="Transforma as a coffee table in a living room" loading="lazy"><div class="cap"><div><h3>Coffee Table</h3><p>Low and easy.</p></div><span class="go">Watch</span></div></a>
-        <a class="t t5" href="#story" data-goto="4"><img src="assets/renders/lounge.jpg" alt="Transforma as a low game table with floor cushions" loading="lazy"><div class="cap"><div><h3>Lounge Game Table</h3><p>Games at cushion height.</p></div><span class="go">Watch</span></div></a>
-      </div>
-    </div>
-  </section>
-
   <section class="block navy" id="locks">
     <div class="wrap">
       <div class="eyebrow mono"><i></i>How it locks</div>
@@ -408,24 +420,65 @@ footer .btn{margin-top:4px}
           <div class="eyebrow mono"><i></i>Built for game night</div>
           <h2 class="big" style="margin:0">Game night is <span class="it">built in.</span></h2>
         </div>
-        <p class="lede">Every Transforma comes with walnut edge rails, so the game table and lounge game table are part of the set from day one, not an extra. The only add-on is an optional play mat.</p>
+        <div class="gn-copy">
+          <p class="lede">Every Transforma comes with walnut edge rails, so the game table and lounge game table are part of the set from day one, not an extra.</p>
+          <p class="addons"><span class="mono">Optional add-ons</span>Extras that expand what you can build. We're exploring gaming accessories like cup holders, playing trays and storage, offered on Kickstarter as optional extras. The core table never needs them, and you decide when to use them.</p>
+        </div>
       </div>
       <figure class="gn-hero"><img src="assets/renders/game-detail.jpg" alt="Close view of the game table with chess, cards, dice and walnut edge rails" loading="lazy"></figure>
-      <div class="boxes">
-        <div class="box"><span class="tag">Included</span><h3>The full table kit</h3><p>Solid-wood leg blocks with couplers, beams and walnut-finish planks. Everything you need to build every table.</p><ul><li>Game table and lounge game table</li><li>Dining table</li><li>Desk and coffee table</li></ul></div>
-        <div class="box"><span class="tag">Included</span><h3>Walnut edge rails</h3><p>Four rails in the same walnut finish as the surface. They cross and lock at the corners to make a raised edge all the way round.</p><ul><li>Dice, coins and pieces stay on the table</li><li>Lift off by hand in moments</li><li>Fit both full and low heights</li></ul></div>
-        <div class="box"><span class="tag opt">Optional add-on</span><h3>The play mat</h3><p>A soft printed surface that drops inside the rails. It's quiet under cards and tiles, easy to pick pieces up from, and kind to the wood beneath.</p><ul><li>Rolls up when you're done</li><li>Not needed to play: the bare top works too</li></ul></div>
-      </div>
-      <div class="living">
-        <div><h4>Small homes</h4><p>One table that changes with the day instead of four that fill the room.</p></div>
-        <div><h4>No tools, ever</h4><p>Every joint is wood on wood. Changing tables is a hands-only job.</p></div>
-        <div><h4>Easy to live with</h4><p>Parts you aren't using stack neatly together until the next change.</p></div>
-        <div><h4>Simple care</h4><p>Wipe with a soft, damp cloth and dry. Use coasters for hot cups and keep it out of harsh direct sun to protect the finish.</p></div>
+    </div>
+  </section>
+
+  <section class="block navy" id="rebuild">
+    <div class="wrap">
+      <h2 class="big rb-title">Don't buy another table. <span class="it">Rebuild the one you have.</span></h2>
+      <p class="lede">Transforma is one modular set of solid-wood pieces, made to be rebuilt by hand for whatever comes next.</p>
+      <div class="rb-grid">
+        <div class="rb">
+          <div class="rb-top"><span class="rb-n">01</span><svg class="rb-ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M17 8l6-3 6 3-6 3zM17 8v6l6 3 6-3V8M23 11v6"/><path d="M11 22l6-3 6 3-6 3zM11 22v6l6 3 6-3v-6M17 25v6"/><path d="M23 22l6-3 6 3-6 3zM29 25v6l6-3v-6"/><path d="M8 36l6-3 6 3-6 3zM8 36v5l6 3 6-3v-5M14 39v5M20 36l6-3 6 3-6 3zM20 41l6 3 6-3v-5M26 39v5M32 36l6-3 6 3-6 3zM38 39v5l6-3v-5M32 41l6 3"/></svg></div>
+          <h3>One set. <br>Multiple tables.</h3>
+          <p>Coffee table, desk, dining table: the same solid-wood pieces, rearranged into a new setup.</p>
+          <p class="rb-strong">Stop compromising on space or money. One table solves it all.</p>
+        </div>
+        <div class="rb">
+          <div class="rb-top"><span class="rb-n">02</span><svg class="rb-ic" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="19"/><path d="M17 13h7v14"/><path d="M24 27a3 3 0 0 0 6 0V13"/><path d="M11 37L37 11"/></svg></div>
+          <h3>No tools. <br>Keep it simple.</h3>
+          <p>Every joint is wood on wood, so you assemble and rebuild it by hand. No furniture-building experience needed.</p>
+        </div>
+        <div class="rb">
+          <div class="rb-top"><span class="rb-n">03</span><svg class="rb-ic" viewBox="0 0 48 48" aria-hidden="true"><circle cx="14" cy="21" r="3.5"/><circle cx="34" cy="21" r="3.5"/><path d="M14 25v8M34 25v8M14 33l-4 9M14 33l4 9M34 33l-4 9M34 33l4 9M14 27l8-11M34 27l-8-11M22 16h4"/><path d="M24 4v4M17 6l2 3.5M31 6l-2 3.5"/></svg></div>
+          <h3>Build it <br>together.</h3>
+          <p>Changing the table isn't a chore. Take it apart, move the pieces and build the next setup together.</p>
+          <p class="rb-strong">Part furniture, part hands-on experience.</p>
+        </div>
+        <div class="rb">
+          <div class="rb-top"><span class="rb-n">04</span><svg class="rb-ic" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="24" width="15" height="15" rx="3" transform="rotate(-12 13.5 31.5)"/><circle cx="10.5" cy="29" r="1.3"/><circle cx="16.5" cy="34" r="1.3"/><circle cx="13.5" cy="31.5" r="1.3"/><rect x="25" y="7" width="15" height="22" rx="2.5" transform="rotate(8 32.5 18)"/><path d="M32.6 13.5l3 4.5-3 4.5-3-4.5z"/></svg></div>
+          <h3>Turn it into <br>game night.</h3>
+          <p>The walnut edge rails come in every set, so dice and pieces stay on the board. Lift them off and dinner's back on.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="block" id="join">
+  <section class="block" id="kickstarter">
+    <div class="wrap">
+      <div class="gn-head">
+        <div>
+          <div class="eyebrow mono"><i></i>The platform</div>
+          <h2 class="big" style="margin:0">Why <span class="it">Kickstarter?</span></h2>
+        </div>
+        <p class="lede">Kickstarter is one of the world's largest crowdfunding platforms. Instead of buying from a shop, people back a product before it's made, and their pledges fund the first production run.</p>
+      </div>
+      <div class="ks-grid">
+        <div class="ks"><span class="ks-k mono">What it is</span><h3>A platform for new ideas</h3><p>Creators share a project and set a funding goal. Backers pledge to support it and get a reward in return: for you, that's your Transforma.</p></div>
+        <div class="ks"><span class="ks-k mono">Why we use it</span><h3>We build what people want</h3><p>Solid-wood furniture means committing to a first batch up front. Kickstarter lets us make exactly as many tables as backers ask for, at early-backer prices.</p></div>
+        <div class="ks"><span class="ks-k mono">All or nothing</span><h3>No risk to you</h3><p>If the campaign doesn't reach its goal, nobody is charged. Your card is only charged once the project is funded.</p></div>
+        <div class="ks"><span class="ks-k mono">Along the way</span><h3>See it being made</h3><p>Backers get regular updates from the workshop to shipping, and their tables ship before the wider launch.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="join" style="padding-top:0">
     <div class="wrap">
       <div class="join">
         <img src="assets/renders/lounge-wide.jpg" alt="" loading="lazy">
@@ -452,13 +505,14 @@ footer .btn{margin-top:4px}
       <div>
         <details open><summary>Do I need tools to change it?</summary><p>No. Every joint is wood on wood: couplers between the leg blocks, notches for the beams and self-locking plank edges. You rebuild it by hand, and no furniture-building experience is needed.</p></details>
         <details><summary>Is it really the same parts every time?</summary><p>Yes. One set of solid-wood leg blocks, beams and planks makes every table. Smaller tables like the desk and coffee table use fewer of them, and the rest stack neatly together until you need them.</p></details>
-        <details><summary>What's included?</summary><p>Everything needed to build all five tables, including the walnut edge rails for the game table and lounge game table. The edge rails are part of the set, not an extra. The play mat is the only optional add-on.</p></details>
+        <details><summary>What's included?</summary><p>Everything needed to build all five tables, including the walnut edge rails for the game table and lounge game table. The edge rails are part of the set, not an extra. Any add-ons we offer on Kickstarter are optional extras.</p></details>
+        <details><summary>How do I look after it?</summary><p>Wipe with a soft, damp cloth and dry. Use coasters for hot cups and keep it out of harsh direct sun to protect the finish. Parts you aren't using stack neatly together until the next change.</p></details>
         <details><summary>What is it made of?</summary><p>Solid-wood leg blocks and beams, walnut-finish planks and rails, and wooden couplers. There's no metal hardware.</p></details>
         <details><summary>How does the Kickstarter campaign work?</summary>
           <p>Transforma will launch on Kickstarter, a platform where people back a product before it goes into production. Here's what that means for you:</p>
           <ol>
             <li><b>Join the waitlist.</b> We'll email you the day the campaign goes live, so you can back it early, when early-backer pricing is limited and goes first.</li>
-            <li><b>Pledge for a reward.</b> Choose your Transforma, with the play mat if you want it, and pledge on Kickstarter.</li>
+            <li><b>Pledge for a reward.</b> Choose your Transforma, plus any optional add-ons you like, and pledge on Kickstarter.</li>
             <li><b>You're only charged if we're funded.</b> Kickstarter is all-or-nothing. Your card is charged only if the campaign reaches its goal by the deadline. If it doesn't, nobody pays anything.</li>
             <li><b>We build the first run.</b> Backer pledges fund the first production run, and we'll post regular updates on production and shipping along the way.</li>
             <li><b>Backers get theirs first.</b> Your table ships before the wider launch. Delivery estimates and shipping regions will be confirmed on the campaign page.</li>
@@ -497,9 +551,10 @@ footer .btn{margin-top:4px}
 <script>
 (function(){
   var story = document.getElementById('story');
-  function onScroll(){ document.body.classList.toggle('past', scrollY > story.offsetTop + story.offsetHeight - innerHeight * 0.2); }
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
-  document.querySelectorAll('[data-goto]').forEach(function(a){ a.addEventListener('click', function(e){ e.preventDefault(); window.__film && window.__film.goTo(+a.dataset.goto, true); }); });
+  var pastAt = 0, ticking = false;
+  function measure(){ pastAt = story.offsetTop + story.offsetHeight - innerHeight * 0.2; }
+  function onScroll(){ if (ticking) return; ticking = true; requestAnimationFrame(function(){ ticking = false; document.body.classList.toggle('past', scrollY > pastAt); }); }
+  measure(); addEventListener('resize', function(){ measure(); onScroll(); }); addEventListener('scroll', onScroll, { passive: true }); onScroll();
   // waitlist dialog, reachable from every screen
   var dlg = document.getElementById('wl');
   document.querySelectorAll('[data-waitlist]').forEach(function(b){ b.addEventListener('click', function(){
