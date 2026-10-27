@@ -243,6 +243,16 @@ h2.rb-title .it{color:#7fb0e8}
 .ks-k{color:var(--blue);font-size:.64rem}
 .ks h3{margin:12px 0 8px;font-size:1.25rem;font-weight:700;letter-spacing:-.025em;line-height:1.15}
 .ks p{margin:0;color:var(--ink-2)}
+.ks-cta{display:flex;align-items:center;flex-wrap:wrap;gap:14px 20px;margin-top:30px}
+.ks-btn{padding:15px 24px 15px 15px;font-size:1rem;gap:12px;box-shadow:0 12px 30px -16px rgba(14,26,43,.6);transition:background .2s}
+.ks-logo{width:26px;height:26px;flex:none;display:block}
+.ks-btn .ar,.ks-alt .ar{transition:transform .25s ease}
+.ks-btn:hover .ar,.ks-alt:hover .ar{transform:translateX(3px)}
+.ks-note{font-size:.62rem;color:var(--ink-2);max-width:30ch;line-height:1.5}
+.ks-alt{display:inline-flex;align-items:center;gap:10px;justify-self:start;margin-top:6px;color:#fbf8f2;font-weight:600;font-size:.92rem;text-decoration:none;border-bottom:1px solid rgba(251,248,242,.35);padding:4px 0}
+.ks-alt:hover{border-bottom-color:#fbf8f2}
+.ks-alt .ks-logo{width:20px;height:20px}
+@media (max-width:560px){.ks-btn{width:100%;justify-content:center}.ks-note{max-width:none}}
 @media (max-width:980px){.ks-grid{grid-template-columns:1fr 1fr}.ks,.ks+.ks{padding:24px 18px 24px 0;border-left:0;border-bottom:1px solid var(--line)}.ks:nth-child(even){padding-left:18px;border-left:1px solid var(--line)}}
 @media (max-width:560px){.ks-grid{grid-template-columns:1fr}.ks,.ks+.ks,.ks:nth-child(even){padding:20px 0;border-left:0}}
 
@@ -475,7 +485,13 @@ footer .btn{margin-top:4px}
           <div class="eyebrow mono"><i></i>The platform</div>
           <h2 class="big" style="margin:0">Why <span class="it">Kickstarter?</span></h2>
         </div>
-        <p class="lede">Kickstarter is one of the world's largest crowdfunding platforms. Instead of buying from a shop, people back a product before it's made, and their pledges fund the first production run.</p>
+        <div>
+          <p class="lede">Kickstarter is one of the world's largest crowdfunding platforms. Instead of buying from a shop, people back a product before it's made, and their pledges fund the first production run.</p>
+          <div class="ks-cta">
+            <a class="btn navy ks-btn" href="https://www.kickstarter.com/projects/marianardgz/transforma-one-set-of-blocks-different-tables" target="_blank" rel="noopener"><svg class="ks-logo" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#05ce78"/><path d="M8.6 6.6v10.8M8.6 12.6l5.6-6M10.6 10.6l4.4 6.8" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Notify me on launch</span><span class="ar" aria-hidden="true">&rarr;</span></a>
+            <span class="ks-note mono">Follow our campaign: Kickstarter emails you the day it goes live</span>
+          </div>
+        </div>
       </div>
       <div class="ks-grid">
         <div class="ks"><span class="ks-k mono">What it is</span><h3>A platform for new ideas</h3><p>Creators share a project and set a funding goal. Backers pledge to support it and get a reward in return: for you, that's your Transforma.</p></div>
@@ -501,6 +517,7 @@ footer .btn{margin-top:4px}
             <div class="field"><input id="email-main" name="email" type="email" autocomplete="email" placeholder="you@example.com" required><button type="submit">Join the waitlist</button></div>
             <div class="msg" role="status" aria-live="polite"></div>
             <div class="fine">One email at launch, plus the occasional build update. Unsubscribe any time.</div>
+            <a class="ks-alt" href="https://www.kickstarter.com/projects/marianardgz/transforma-one-set-of-blocks-different-tables" target="_blank" rel="noopener"><svg class="ks-logo" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#05ce78"/><path d="M8.6 6.6v10.8M8.6 12.6l5.6-6M10.6 10.6l4.4 6.8" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Or follow us on Kickstarter</span><span class="ar" aria-hidden="true">&rarr;</span></a>
           </form>
         </div>
       </div>
